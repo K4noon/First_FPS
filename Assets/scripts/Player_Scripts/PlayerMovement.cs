@@ -17,6 +17,9 @@ public class PlayerMovement : MonoBehaviour
 
     private Collider playerCollider;
 
+    [Tooltip("Animator du joueur (laissez vide pour récupération automatique dans les enfants)")]
+    [SerializeField] private Animator animator;
+
     private void OnCollisionEnter(Collision collision)
     {
         Debug.Log(collision.gameObject);
@@ -27,9 +30,9 @@ public class PlayerMovement : MonoBehaviour
             isGrounded = true;
         }
 
-        // Si on touche un GameObject nommé "Obstacle" et que c'est un BoxCollider
+        // Si on touche un GameObject ayant le tag "obstacle" et que c'est un BoxCollider
         // L'effet n'est appliqué que si speed est strictement supérieur à 7f
-        if (collision.gameObject.name == "Obstacle" && collision.collider is BoxCollider && speed > 7f)
+        if (collision.gameObject.CompareTag("Obstacle") && collision.collider is BoxCollider && speed > 7f)
         {
             // Assurer que rb et playerCollider sont présents
             if (rb == null) rb = GetComponent<Rigidbody>();
@@ -70,6 +73,11 @@ public class PlayerMovement : MonoBehaviour
     {
         if (rb == null) rb = GetComponent<Rigidbody>();
         playerCollider = GetComponent<Collider>();
+
+        if (animator == null)
+        {
+            animator = GetComponentInChildren<Animator>();
+        }
     }
 
     // Update is called once per frame
@@ -98,7 +106,10 @@ public class PlayerMovement : MonoBehaviour
             isGrounded = false;
 
         }
-        if (Input.GetKey(KeyCode.LeftShift))
+
+        bool sprintActive = Input.GetKey(KeyCode.LeftShift);
+
+        if (sprintActive)
         {
             speed = SprintSpeed;
         }
@@ -107,6 +118,39 @@ public class PlayerMovement : MonoBehaviour
             speed = 7f;
         }
 
+        // Mettre à jour l'Animator : IsWalking = true quand W est pressé et que le sprint n'est pas actif
+        if (animator != null) 
+        {
+            bool isWalking = Input.GetKey(KeyCode.W) && !sprintActive;
+            animator.SetBool("IsWalking", isWalking);
+        }
+        if (animator != null) 
+        {
+            bool isWalkingB = Input.GetKey(KeyCode.S) && !sprintActive;
+            animator.SetBool("IsWalkingB", isWalkingB);
+        }
+        if (animator != null) 
+        {
+            bool isWalkingR = Input.GetKey(KeyCode.D) && !sprintActive;
+            animator.SetBool("IsWalkingR", isWalkingR);
+        }
+        if (animator != null) 
+        {
+            bool isWalkingL = Input.GetKey(KeyCode.A) && !sprintActive;
+            animator.SetBool("IsWalkingL", isWalkingL);
+        }
+        if (animator != null) 
+        {
+            animator.SetBool("IsSprinting", sprintActive && Input.GetKey(KeyCode.W));
+        }
+        if (animator != null) 
+        {
+            animator.SetBool("IsSprintingR", sprintActive && Input.GetKey(KeyCode.D));
+        }
+        if (animator != null)
+        {
+            animator.SetBool("isJumping", Input.GetAxis("Jump") != 0);
+        }
     }
 }
 
