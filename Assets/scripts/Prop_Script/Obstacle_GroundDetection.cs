@@ -10,7 +10,7 @@ public class Obstacle_GroundDetection : MonoBehaviour
     [SerializeField] private float verticalTolerance = 0.05f;
 
     [Tooltip("Valeur de jumpForce appliquée quand le joueur est sur l'obstacle")]
-    [SerializeField] private float forcedJumpForce = 4f;
+    [SerializeField] private float forcedJumpForce = 1f;
 
     private BoxCollider boxCollider;
     private GameObject playerObject;
