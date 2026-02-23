@@ -5,7 +5,7 @@ using System.Collections.Generic;
 public class HeadRotation : MonoBehaviour
 {
     [SerializeField] private Transform playerBody;
-    [SerializeField] private float mouseSensitivity = 100f;
+    [SerializeField] private float mouseSensitivity = 10f;
     private float xRotation = 0f;
     void Start()
     {

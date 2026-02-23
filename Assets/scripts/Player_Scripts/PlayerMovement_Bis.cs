@@ -12,7 +12,7 @@ public class PlayerMovement_Bis : MonoBehaviour
     float speed = 3.5f;
     public float Jump = 7f;
     public float jumpForce = 7f;
-    object rb;
+    Rigidbody rb;
     public bool isGrounded;
 
     private Collider playerCollider;
@@ -21,9 +21,15 @@ public class PlayerMovement_Bis : MonoBehaviour
     public float obstacleUpImpulse = 5f;
     public float obstacleIgnoreCollisionTime = 0.5f;
 
+    // Durée pour réduire la vitesse de sprint vers la vitesse de marche lors d'un saut
+    public float jumpSprintReductionDuration = 0.7f;
+    private bool reducingSprintOnJump = false;
+    private float jumpSprintTimer = 0f;
+    private float jumpSprintStartSpeed = 0f;
 
 
-    [Tooltip("Animator du joueur (laissez vide pour r�cup�ration automatique dans les enfants)")]
+
+    [Tooltip("Animator du joueur (laissez vide pour récupération automatique dans les enfants)")]
     [SerializeField] private Animator animator;
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
@@ -32,6 +38,17 @@ public class PlayerMovement_Bis : MonoBehaviour
         if (animator == null)
         {
             animator = GetComponentInChildren<Animator>();
+        }
+
+        // Assurer la référence au collider du joueur (attendu : CapsuleCollider)
+        if (playerCollider == null)
+        {
+            playerCollider = GetComponent<Collider>();
+        }
+
+        if (rb == null)
+        {
+            rb = GetComponent<Rigidbody>();
         }
     }
 
@@ -42,15 +59,24 @@ public class PlayerMovement_Bis : MonoBehaviour
         if (Input.GetAxis("Jump") != 0 && isGrounded) //si appuie sur espace et touche le sol
         {
             Jump = Input.GetAxis("Jump") * jumpForce;
-            object rigidbody = rb as Rigidbody;
-            if (rigidbody != null)
+            if (rb != null)
             {
-                (rigidbody as Rigidbody).AddForce(Vector3.up * Jump, ForceMode.Impulse);
+                rb.AddForce(Vector3.up * Jump, ForceMode.Impulse);
             }
+
+            // Si le joueur saute alors qu'il est en sprint (LeftShift enfoncé) et que sa vitesse est supérieure à la marche,
+            // on démarre la réduction progressive de la vitesse pour atteindre speedMaxWalk en jumpSprintReductionDuration secondes.
+            if (Input.GetKey(KeyCode.LeftShift) && curSpeed > speedMaxWalk)
+            {
+                reducingSprintOnJump = true;
+                jumpSprintTimer = 0f;
+                jumpSprintStartSpeed = curSpeed;
+            }
+
             isGrounded = false;
         }
         bMoving = false;
-        // R�cup�ration des entr�es WASD (compatible avec GetKey comme avant)
+        // Récupération des entrées WASD (compatible avec GetKey comme avant)
         float horizontal = 0f;
         if (Input.GetKey(KeyCode.D))
         {
@@ -93,7 +119,25 @@ public class PlayerMovement_Bis : MonoBehaviour
             if (curSpeed >= 0f) curSpeed -= 1 * Time.deltaTime * nAcceleration;
         }
 
-
+        // Si la réduction de sprint à cause du saut est active et que le joueur est en l'air, on applique la réduction progressive.
+        if (reducingSprintOnJump)
+        {
+            if (!isGrounded)
+            {
+                jumpSprintTimer += Time.deltaTime;
+                float t = Mathf.Clamp01(jumpSprintTimer / jumpSprintReductionDuration);
+                curSpeed = Mathf.Lerp(jumpSprintStartSpeed, speedMaxWalk, t);
+                if (t >= 1f)
+                {
+                    reducingSprintOnJump = false;
+                }
+            }
+            else
+            {
+                // Si le joueur a atterri, on stoppe la réduction
+                reducingSprintOnJump = false;
+            }
+        }
 
         transform.Translate(input * curSpeed * Time.deltaTime, Space.Self);
 
@@ -121,28 +165,55 @@ public class PlayerMovement_Bis : MonoBehaviour
     {
         Debug.Log(collision.gameObject);
         // collision.gameObject
+
+        // Assurer que playerCollider est défini
+        if (playerCollider == null)
+        {
+            playerCollider = GetComponent<Collider>();
+        }
+
+        // Vérifier si le contact implique le CapsuleCollider du joueur
+        bool contactUsesPlayerCapsule = false;
+        foreach (var cp in collision.contacts)
+        {
+            if (cp.thisCollider is CapsuleCollider)
+            {
+                contactUsesPlayerCapsule = true;
+                break;
+            }
+        }
+
+        // Si la collision est avec un BoxCollider et que l'objet a le tag "Obstacle" ou "Isfloor",
+        // et que le contact provient du CapsuleCollider du joueur, on considère que le joueur est au sol.
+        if (contactUsesPlayerCapsule && collision.collider is BoxCollider &&
+            (collision.gameObject.CompareTag("Obstacle") || collision.gameObject.CompareTag("IsFloor")))
+        {
+            isGrounded = true;
+        }
+
         if (collision.collider.name == "Terrain")
         {
             //Debug.Log("entre");
             isGrounded = true;
         }
         // Si on touche un GameObject ayant le tag "obstacle" et que c'est un BoxCollider
-        // L'effet n'est appliqu� que si speed est strictement sup�rieur � 7f
-        if (collision.gameObject.CompareTag("Obstacle") && collision.collider is BoxCollider && speed > 7f)
+        // L'effet n'est appliqué que si speed est strictement supérieur à 7f
+        if (collision.gameObject.CompareTag("Obstacle") && collision.collider is BoxCollider && curSpeed > 7f)
         {
-            // Assurer que rb et playerCollider sont pr�sents
+            // Assurer que rb et playerCollider sont présents
             if (rb == null) rb = GetComponent<Rigidbody>();
             if (playerCollider == null) playerCollider = GetComponent<Collider>();
 
-       
 
-            // Ignorer temporairement la collision pour �viter d'accrocher l'obstacle
+
+            // Ignorer temporairement la collision pour éviter d'accrocher l'obstacle
             if (playerCollider != null && collision.collider != null)
             {
+                Debug.Log("Collision avec obstacle à haute vitesse, application de l'impulsion et ignore collision temporaire");
                 Physics.IgnoreCollision(playerCollider, collision.collider, true);
                 StartCoroutine(ReenableCollisionAfter(collision.collider, obstacleIgnoreCollisionTime));
-                obstacleForwardImpulse = 5f;
-                obstacleUpImpulse = 5f;
+                rb.AddForce(Jump * transform.forward * obstacleForwardImpulse + Vector3.up * obstacleUpImpulse, ForceMode.Impulse);
+
             }
         }
     }
@@ -155,7 +226,4 @@ public class PlayerMovement_Bis : MonoBehaviour
         }
     }
 }
-
-    
-    
 
