@@ -161,7 +161,8 @@ public class PlayerMovement_Bis : MonoBehaviour
             animator.SetBool("IsJumping", Input.GetAxis("Jump") != 0);
         }
     }
-        private void OnCollisionEnter(Collision collision)
+    
+    private void OnCollisionEnter(Collision collision)
     {
         Debug.Log(collision.gameObject);
         // collision.gameObject
@@ -213,10 +214,25 @@ public class PlayerMovement_Bis : MonoBehaviour
                 Physics.IgnoreCollision(playerCollider, collision.collider, true);
                 StartCoroutine(ReenableCollisionAfter(collision.collider, obstacleIgnoreCollisionTime));
                 rb.AddForce(Jump * transform.forward * obstacleForwardImpulse + Vector3.up * obstacleUpImpulse, ForceMode.Impulse);
+                
 
             }
         }
+
+        if(collision.gameObject.name == "Elevator")
+        {
+            transform.parent = collision.transform;
+        }
     }
+
+    private void OnCollisionExit(Collision collision)
+    {
+        if (collision.gameObject.name == "Elevator")
+        {
+            transform.parent = null;
+        }
+    }
+
     private IEnumerator ReenableCollisionAfter(Collider other, float delay)
     {
         yield return new WaitForSeconds(delay);
